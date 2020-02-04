@@ -23,12 +23,12 @@ from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED, FIRST_CO
 
 ################################################################################  common varialbles ##########################################################################
 
-#configure path
-root_dir = os.path.dirname(os.path.abspath('.'))
-input_dir = root_dir + '/lab1/input/'
-output_dir = root_dir + '/lab1/output/'
 
 data_queue = Queue()
+
+read_finished = False
+devision_finished = False
+write_temp_file_tasks = []
 
 MATRIX_SIZE = 50000
 CHUNK_SIZE = 10 #num rows in chunk
@@ -113,7 +113,7 @@ def devide_data_to_temp_files(nums_per_temp_file, loop):
                 print("devide-data finished")
                 break
 
-        data = data_queue.get(10000)
+        data = data_queue.get()
         temp_data_list.append(data)
         
         if len(temp_data_list) >= nums_per_temp_file:
@@ -130,7 +130,7 @@ async def write_to_temp_file(temp_data_list):
         global nums_mergers
         nums_mergers += 1
 
-def external_merge_multifiles2(input_files:[], output_file, max_rows, size, max_files=10, show_progress=False, nums_per_temp_file=100):
+def external_merge_multifiles2(input_files:[], output_file, max_files=10, show_progress=False, nums_per_temp_file=100):
     global last_mergers_list_fh
     last_mergers_list_fh = tempfile.NamedTemporaryFile(delete=False, mode="w")
     global nums_mergers
@@ -152,8 +152,6 @@ def external_merge_multifiles2(input_files:[], output_file, max_rows, size, max_
     while True:
         if devision_finished:
             break
-
-    total_rows, total_cols = size
     
     #finish devide
 
@@ -181,10 +179,7 @@ def external_merge_multifiles2(input_files:[], output_file, max_rows, size, max_
 
     with open(last_file[0], "r") as f:
         int_stream = (int(line) for line in f)
-        #print(list(int_stream))
-        #print()
-        line_stream = map('{}\n'.format, split_every(total_cols, int_stream))
-        #print(list(line_stream))
+        line_stream = map('{}\n'.format, int_stream)
         output_file.writelines(line_stream)
 
     os.unlink(last_file[0])
@@ -203,7 +198,7 @@ def read_single_file_threadpool(file_name: str):
     else:
         logger.error(f"Can't read the file:{fileName}! Please check.")
     input_file.close()
-
+    # print(f"read finish in {file_name}")
     pass
 
 
@@ -220,7 +215,7 @@ def read_all_data_threadpool(input_files, loop):
     print("read-data finished")
 
 
-def devide_data_to_temp_files(nums_per_temp_file, loop):
+def devide_data_to_temp_files_threadpool(nums_per_temp_file, loop):
     asyncio.set_event_loop(loop)
     executor = ThreadPoolExecutor(max_workers=8)
     global write_temp_file_tasks
@@ -239,12 +234,18 @@ def devide_data_to_temp_files(nums_per_temp_file, loop):
                 
                 break
 
-        data = data_queue.get(10000)
-        temp_data_list.append(data)
         
-        if len(temp_data_list) >= nums_per_temp_file:
-            write_temp_file_tasks.append(executor.submit(write_to_temp_file_threadpool, (temp_data_list)))
-            temp_data_list = [] #!需要用线程池
+        if data_queue.empty() == False:
+            data = data_queue.get(False)
+            temp_data_list.append(data)
+        
+            if len(temp_data_list) >= nums_per_temp_file:
+                write_temp_file_tasks.append(executor.submit(write_to_temp_file_threadpool, (temp_data_list)))
+                temp_data_list = []
+        else:
+            time.sleep(0.0001) # It's not a good method, but I don't konw how to yield to other thread now.
+
+            
 
 def write_to_temp_file_threadpool(temp_data_list):
     with tempfile.NamedTemporaryFile(delete=False, mode="w") as merge:
@@ -256,7 +257,7 @@ def write_to_temp_file_threadpool(temp_data_list):
         global nums_mergers
         nums_mergers += 1
 
-def external_merge_multi_files_with_threadpool(input_files:[], output_file, max_rows, size, max_files=10, show_progress=False, nums_per_temp_file=100):
+def external_merge_multi_files_with_threadpool(input_files:[], output_file, max_files=10, show_progress=False, nums_per_temp_file=100):
     global last_mergers_list_fh
     last_mergers_list_fh = tempfile.NamedTemporaryFile(delete=False, mode="w")
     global nums_mergers
@@ -264,7 +265,7 @@ def external_merge_multi_files_with_threadpool(input_files:[], output_file, max_
 
     # create the loop to devide data
     thread_loop = asyncio.new_event_loop()
-    t = threading.Thread(target=devide_data_to_temp_files, args=(nums_per_temp_file, thread_loop,))
+    t = threading.Thread(target=devide_data_to_temp_files_threadpool, args=(nums_per_temp_file, thread_loop,))
     t.daemon = True
     t.start()
 
@@ -282,8 +283,6 @@ def external_merge_multi_files_with_threadpool(input_files:[], output_file, max_
     wait(write_temp_file_tasks, return_when=ALL_COMPLETED)
     #finish devide
 
-    total_rows, total_cols = size
-
     max_files = nums_mergers if nums_mergers < max_files else max_files
 
     while nums_mergers > 1:
@@ -291,8 +290,6 @@ def external_merge_multi_files_with_threadpool(input_files:[], output_file, max_
         fnames_stream = (f.strip() for f in last_mergers_list_fh)
         mergers = tempfile.NamedTemporaryFile(delete=False, mode="w")
         for l, ten_files in group_every(max_files, fnames_stream):
-           # print(l)
-           # print(list(ten_files))
             nums_mergers -= l
             with tempfile.NamedTemporaryFile(delete=False, mode="w") as merge:
                 merge_files(map(open, ten_files), merge)
@@ -306,39 +303,47 @@ def external_merge_multi_files_with_threadpool(input_files:[], output_file, max_
 
     close_unlink(last_mergers_list_fh)
 
+    total_rows, total_cols = size
     with open(last_file[0], "r") as f:
         int_stream = (int(line) for line in f)
-        #print(list(int_stream))
-        #print()
-        line_stream = map('{}\n'.format, split_every(total_cols, int_stream))
-        #print(list(line_stream))
+        line_stream = map('{}\n'.format, int_stream)
         output_file.writelines(line_stream)
 
     os.unlink(last_file[0])
 
 if __name__ == "__main__":
-    s = time.perf_counter()
+
+    root_dir = os.path.dirname(os.path.abspath('.'))
+    input_dir = root_dir + '/lab1/input/'
+    output_dir = root_dir + '/lab1/output/'
+
+    time_start = time.perf_counter()
     max_files = 50
 
-    size = (MATRIX_SIZE, MATRIX_SIZE)
     out = "sorted.txt"
-    
     outFileName = f"{output_dir}sorted.txt"
     output_file = open(outFileName, 'w')
-    # for i in range(10):
-    #     inFileName = f"{input_dir}unsorted_{str(i+1)}.txt"
-    #     input_files.append(open(inFileName))
-    # external_merge_multifiles(input_files, output_file, CHUNK_SIZE, size, max_files, True)
 
-    devision_finished = False
-    read_finished = False
     input_file_names = []
     for i in range(10):
         input_file_names.append(f"{input_dir}unsorted_{str(i+1)}.txt")
-    # external_merge_multifiles2(input_file_names, output_file, CHUNK_SIZE, size, max_files, True)
-    write_temp_file_tasks = []
-    external_merge_multi_files_with_threadpool(input_file_names, output_file, CHUNK_SIZE, size, max_files, True)
 
+    external_merge_multifiles2(input_file_names, output_file, max_files, True)
+
+    elapsed_asyncio = time.perf_counter() - time_start
+    time_start = time.perf_counter()
+
+    devision_finished = False
+    read_finished = False
+
+    
+    external_merge_multi_files_with_threadpool(input_file_names, output_file, max_files, True)
     output_file.close()
-    elapsed = time.perf_counter() - s
-    print(f"{__file__} executed in {elapsed:0.4f} seconds.")
+
+    elapsed_threadpool = time.perf_counter() - time_start
+
+    print(f"{__file__} executed in asyncio={elapsed_asyncio:0.4f} and threadpool={elapsed_threadpool:0.4f} seconds.")
+
+    with open(f"{output_dir}async_time.txt", mode="w") as time_file:
+        time_file.write(f"asyncio consumed time={elapsed_asyncio:0.4f} seconds\n")
+        time_file.write(f"threadpool consumed time={elapsed_threadpool:0.4f} seconds\n")
