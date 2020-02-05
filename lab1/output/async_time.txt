@@ -1,2 +1,2 @@
-asyncio consumed time=1.3404 seconds
-threadpool consumed time=0.2695 seconds
+asyncio consumed time=1.5565 seconds
+threadpool consumed time=0.1340 seconds
