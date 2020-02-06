@@ -70,3 +70,4 @@ def merge_all_files(nums_mergers, max_files, last_mergers_list_fh, out_file_name
             output_file.writelines(line_stream)
 
     os.unlink(last_file[0])
+    print("merge-data finished")

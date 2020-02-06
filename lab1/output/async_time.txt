@@ -1,3 +1,2 @@
-sorting with asyncio consumed 1.2899 seconds.
-sorting with threadpool consumed 0.0900 seconds.
-the speed with threadpool is 14.33 times compared to that of asyncio.
+Asyncio-sort costs 11.9222 seconds for 10 times. Average time = 1.1922 seconds.
+Threadpool-sort costs 1.1584 seconds for 10 times. Average time = 0.1158 seconds.

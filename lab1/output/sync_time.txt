@@ -1,1 +1,1 @@
-The syncronous method consumed time=0.0349 seconds
+Sync-sort costs 3.4091 seconds for 100 times. Average time = 0.0341 seconds

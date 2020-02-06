@@ -50,7 +50,7 @@ async def read_single_file_asyncio(file_name: str):
             num = int(num.strip())
             data_queue.put(num)
     else:
-        logger.error(f"Can't read the file:{fileName}! Please check.")
+        print(f"Can't read the file:{fileName}! Please check.")
     input_file.close()
 
 
@@ -138,7 +138,7 @@ def read_single_file_threadpool(file_name: str):
             num = int(num.strip())
             data_queue.put(num)
     else:
-        logger.error(f"Can't read the file:{fileName}! Please check.")
+        print(f"Can't read the file:{fileName}! Please check.")
     input_file.close()
 
 
@@ -217,7 +217,7 @@ def sort_threadpool(input_file_names:[], out_file_name, max_files=10, show_progr
     #finish devide
 
     utils.merge_all_files(nums_mergers, max_files, last_mergers_list_fh, out_file_name)
-   
+
 
 ######################################################################### main() to test #############################################################################
 
@@ -232,23 +232,31 @@ if __name__ == "__main__":
     input_file_names = []
     for i in range(10):
         input_file_names.append(f"{input_dir}unsorted_{str(i+1)}.txt")
+    
+    #the above codes cost little time, just ignore it. 
 
-    #test and time ext merge sort method with asyncio 
     time_start = time.perf_counter()
-    sort_asyncio(input_file_names, out_file_name, max_files, True)
+    test_times = 10
+    for i in range(test_times):
+        #test and time ext merge sort method with asyncio 
+        devision_finished = False
+        read_finished = False
+        sort_asyncio(input_file_names, out_file_name, max_files, True)
+
     elapsed_asyncio = time.perf_counter() - time_start
 
-    #test and time ext merge sort method with threadpool 
     time_start = time.perf_counter()
-    devision_finished = False
-    read_finished = False
-    sort_threadpool(input_file_names, out_file_name, max_files, True)
+    for i in range(test_times):
+        #test and time ext merge sort method with threadpool 
+        devision_finished = False
+        read_finished = False
+        sort_threadpool(input_file_names, out_file_name, max_files, True)
+
     elapsed_threadpool = time.perf_counter() - time_start
 
     #log times to output/async_time.file
-    result = f"sorting with asyncio consumed {elapsed_asyncio:0.4f} seconds.\n"
-    result += f"sorting with threadpool consumed {elapsed_threadpool:0.4f} seconds.\n"
-    result += f"the speed with threadpool is {(elapsed_asyncio/elapsed_threadpool):0.2f} times compared to that of asyncio."
+    result = f"Asyncio-sort costs {elapsed_asyncio:0.4f} seconds for {test_times} times. Average time = {(elapsed_asyncio/test_times):0.4f} seconds.\n"
+    result += f"Threadpool-sort costs {elapsed_threadpool:0.4f} seconds for {test_times} times. Average time = {(elapsed_threadpool/test_times):0.4f} seconds.\n"
     print(result)
 
     with open(f"{output_dir}async_time.txt", mode="w") as time_file:

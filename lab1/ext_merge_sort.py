@@ -67,19 +67,23 @@ def sort_sync(input_file_names:[], out_file_name, max_files=10, show_progress=Fa
 
 if __name__ == "__main__":
     s = time.perf_counter()
-    max_files = 50
 
-    out = "sorted.txt"
-    out_file_name = f"{output_dir}sorted.txt"
-    input_file_names = []
-    for i in range(10):
-        input_file_names.append(f"{input_dir}unsorted_{str(i+1)}.txt")
+    test_times = 100
+    for i in range(test_times):
 
-    sort_sync(input_file_names, out_file_name, max_files, True)
+        max_files = 50
+        out = "sorted.txt"
+        out_file_name = f"{output_dir}sorted.txt"
+        input_file_names = []
+        for i in range(10):
+            input_file_names.append(f"{input_dir}unsorted_{str(i+1)}.txt")
+
+        sort_sync(input_file_names, out_file_name, max_files, True)
 
     elapsed = time.perf_counter() - s
 
     #log times to output/async_time.file
-    print(f"{__file__} executed in sync={elapsed:0.4f} seconds.")
+    result = f"Sync-sort costs {elapsed:0.4f} seconds for {test_times} times. Average time = {(elapsed/test_times):0.4f} seconds"
+    print(result)
     with open(f"{output_dir}sync_time.txt", mode="w") as time_file:
-        time_file.write(f"The syncronous method consumed time={elapsed:0.4f} seconds\n")
+        time_file.write(result)
