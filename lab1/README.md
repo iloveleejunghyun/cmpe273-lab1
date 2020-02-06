@@ -9,8 +9,11 @@ but also takes more time to solve the problem because task switching also need s
 to realize the same function, which could be faster.
 
 Here's result for one time:
-Sync-sort costs 2.3803 seconds for 100 times. Average time = 0.0238 seconds
+
+Sync-sort costs 2.3803 seconds for 100 times. Average time = 0.0238 seconds.
+
 Asyncio-sort costs 11.8859 seconds for 10 times. Average time=1.1886.
+
 Threadpool-sort costs 1.2094 seconds for 10 times. Average time=0.1209.
 
 The result shows that syncronous external merge method is faster than the other two asyncronous methods. I think the main reason is that the data set is too small and the program spends too much time on thread switching.
